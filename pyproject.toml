@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sql-asset-graph"
+version = "0.1.0"
+description = "HiveSQL and SparkSQL optimized SQL asset extraction, dependency scanning, and table-level lineage analysis."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+	{ name = "esonx" },
+]
+license = "LicenseRef-Proprietary"
+license-files = ["LICENSE"]
+keywords = [
+	"sql",
+	"lineage",
+	"hive",
+	"sparksql",
+	"data-engineering",
+]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Environment :: Console",
+	"Intended Audience :: Developers",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3 :: Only",
+	"Programming Language :: Python :: 3.9",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Topic :: Database",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = []
+
+[project.scripts]
+sql-asset-graph = "sql_asset_graph.main:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+namespaces = false
+include = ["sql_asset_graph*"]
+exclude = [
+	"sql_asset_graph.archive*",
+	"tests*",
+	"archive*",
+	"code*",
+	"reference*",
+	"sql_lineage*",
+]

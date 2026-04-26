@@ -1,0 +1,17 @@
+exclude .DS_Store
+exclude ReadMe.md
+recursive-exclude * __pycache__ *.py[cod] *.so
+
+prune tests
+prune archive
+prune code
+prune data
+prune doc
+prune output
+prune reference
+prune build
+prune .tmp_dist
+prune sql_asset_graph/archive
+
+global-exclude .DS_Store
+global-exclude ReadMe.md
