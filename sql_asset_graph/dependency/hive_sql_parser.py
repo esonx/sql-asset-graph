@@ -30,7 +30,7 @@ class SQLConfig:
         self.invalid_keywords = {
             'select', 'insert', 'create', 'drop', 'alter', 'with', 'as',
             'union', 'intersect', 'except', 'where', 'group', 'order',
-            'having', 'limit', 'offset', 'by', 'on', 'using'
+            'having', 'limit', 'offset', 'by', 'on', 'using', 'directory', 'local'
         }
 
 class HiveSQLDependencyExtractor:
@@ -40,7 +40,11 @@ class HiveSQLDependencyExtractor:
         self.config = config
 
         self._write_patterns = [
+            r'\bINSERT\s+OVERWRITE\s+(?:LOCAL\s+)?DIRECTORY\s+[\'"]([^\'"]+)[\'"]',
             r'\bINSERT\s+(?:INTO|OVERWRITE)\s+(?:TABLE\s+)?([^\s\(;]+)(?:\s+PARTITION\s*\([^)]*\))?',
+            r'\bMERGE\s+INTO\s+([^\s\(;]+)',
+            r'^\s*UPDATE\s+([^\s\(;]+)',
+            r'^\s*DELETE\s+FROM\s+([^\s\(;]+)',
             r'\bCREATE\s+(?:TEMPORARY\s+)?(?:TABLE|VIEW)\s+(?:IF\s+NOT\s+EXISTS\s+)?([^\s\(;]+)',
             r'\bDROP\s+(?:TABLE|VIEW)\s+(?:IF\s+EXISTS\s+)?([^\s\(;]+)',
             r'\bALTER\s+TABLE\s+([^\s\(;]+)'
@@ -51,6 +55,7 @@ class HiveSQLDependencyExtractor:
             r'(?:LEFT|RIGHT|INNER|FULL|CROSS|LATERAL)?\s*JOIN\s+([^\s\(\);,]+)',
             r'\bEXISTS\s*\(\s*SELECT[^;]*?FROM\s+([^\s\(\);,]+)',
             r'(?<=\()SELECT[^;]*?FROM\s+([^\s\(\);,]+)',
+            r'\bMERGE\s+INTO\s+[^\s\(\);]+(?:\s+(?:AS\s+)?\w+)?\s+USING\s+([A-Za-z0-9_\.{}]+)',
             r'CREATE\s+(?:TEMPORARY\s+)?VIEW\s+[^\s\(\);]+\s+AS\s+SELECT[^;]*?FROM\s+([^\s\(\);,]+)'
         ]
 
@@ -121,9 +126,14 @@ class HiveSQLDependencyExtractor:
     def _detect_statement_type(self, statement: str) -> str:
         stripped_statement = statement.lstrip()
 
-        match = re.match(r'^(INSERT|CREATE|SELECT|DROP|ALTER)\b', stripped_statement, re.IGNORECASE)
+        match = re.match(r'^(INSERT|CREATE|SELECT|DROP|ALTER|MERGE|UPDATE|DELETE)\b', stripped_statement, re.IGNORECASE)
         if match:
             return match.group(1).upper()
+
+        if re.match(r'^FROM\b', stripped_statement, re.IGNORECASE):
+            if re.search(r'\bINSERT\s+(?:INTO|OVERWRITE)\b', stripped_statement, re.IGNORECASE):
+                return 'INSERT'
+            return 'SELECT'
 
         if not re.match(r'^WITH\b', stripped_statement, re.IGNORECASE):
             return 'UNKNOWN'
@@ -151,7 +161,7 @@ class HiveSQLDependencyExtractor:
 
             if depth == 0:
                 nested_match = re.match(
-                    r'(INSERT|CREATE|SELECT|DROP|ALTER)\b',
+                    r'(INSERT|CREATE|SELECT|DROP|ALTER|MERGE|UPDATE|DELETE)\b',
                     stripped_statement[index:],
                     re.IGNORECASE,
                 )
@@ -217,9 +227,12 @@ class HiveSQLDependencyExtractor:
                     for table_name in formal_read_tables
                     if not self._is_dynamic_table_name(table_name)
                 }
-            elif statement_type == 'INSERT':
+            elif statement_type in {'INSERT', 'MERGE'}:
                 lineage_targets = formal_write_tables
                 lineage_sources = formal_read_tables
+            elif statement_type in {'UPDATE', 'DELETE'}:
+                lineage_targets = formal_write_tables
+                lineage_sources = set()
             elif statement_type == 'CREATE' and formal_read_tables and formal_write_tables:
                 lineage_targets = formal_write_tables
                 lineage_sources = formal_read_tables
@@ -308,6 +321,8 @@ class HiveSQLDependencyExtractor:
 
         if not name:
             return ''
+        if name.startswith('/'):
+            return f"DIRECTORY:{name}".upper()
         name = name.strip().strip('`[]"\'').strip()
 
 

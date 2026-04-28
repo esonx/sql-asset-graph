@@ -41,6 +41,19 @@ class LineageAssembler:
                     }
                 )
 
+            if not statement.edges and statement.target_tables:
+                for target_table in sorted(statement.target_tables):
+                    rows.append(
+                        {
+                            'file_name': file_name,
+                            'statement_index': str(statement.statement_index),
+                            'statement_type': statement.statement_type,
+                            'target_table': target_table,
+                            'source_table': '',
+                            'unresolved_dynamic_tables': '',
+                        }
+                    )
+
             for table_name in sorted(statement.unresolved_dynamic_tables):
                 rows.append(
                     {
